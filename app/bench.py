@@ -28,7 +28,8 @@ from app.ask import DEFAULT_QUESTION
 from app.config import TEMPERATURE, api_error_message, get_api_key
 
 # gemini-2.5-flash-lite はモデル一覧には出るが、新規ユーザーには 404 を返す（2026年10月時点）
-DEFAULT_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.1-flash-lite"]
+# gemini-3.5-flash は非推奨で gemini-3.6-flash に自動転送されるため、最初から 3.6-flash を指定する
+DEFAULT_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash-lite"]
 
 # 出力の長さが違う3種類の質問
 QUESTIONS = {
@@ -55,6 +56,7 @@ class Record:
     output_chars: int | None = None
     quota: str = ""  # 429 のとき: 当たった制限とその上限値
     retry_delay_s: float | None = None  # 429 のとき: サーバーが示した待ち時間
+    served_model: str = ""  # 実際に応答したモデル（指定したモデルから転送されることがある）
 
 
 def measure(client: genai.Client, model: str, question: str) -> Record:
@@ -75,6 +77,8 @@ def measure(client: genai.Client, model: str, question: str) -> Record:
             text += chunk.text
         if chunk.usage_metadata is not None:
             usage = chunk.usage_metadata  # 最後のチャンクに全体の集計が入る
+        if chunk.model_version:
+            record.served_model = chunk.model_version
     record.total_s = time.perf_counter() - start
 
     record.output_chars = len(text)
